@@ -19,7 +19,7 @@ mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts --input <snapshot.json>
 output, and writes `dossier.json` with the vendored make.fun library. Open `out/dashboard/`
 in a browser; no network is needed.
 
-## The model (radar-2)
+## The model (radar-3)
 
 ```
 implied = round( tvl_usd x 0.30
@@ -43,6 +43,38 @@ No protocol name is ever special-cased: the same function scores every row, and 
 dashboard recomputes each row from the same figures, so the page and `board.json` agree.
 The dashboard's model sandbox lets a reader move the constants and watch the board
 re-rank; the board itself always uses the defaults above.
+
+## Confidence in a rank
+
+Every row also carries a confidence score from 0 to 100, with a band — High (75 and up),
+Medium (55–74) or Low (below 55) — and the reasons that moved it most. The score is a
+second opinion on the implied value, not a second ranking: it never changes a row's place
+on the board, it says how far to trust the number.
+
+It is built from what the snapshot actually records for that protocol: whether a seven-day
+move and a listing date are on file, whether a category is named, how many chains it runs
+on, how large its TVL is, and how long it has been tracked. A complete record with a long
+track record and a steady weekly move scores high; a thin record, a very recent listing,
+or a weekly move so extreme it looks like a data quirk scores low. No row can reach 100:
+the top of the scale is deliberately out of reach, because an implied value is an
+estimate and the score should never pretend otherwise.
+
+The board shows the score and band on every row, the column sorts by it, and the detail
+drawer for each protocol names the reasons, so a reader can see exactly what earned or
+cost the points. The drawer also shows the full breakdown:
+
+| What it is for | Points |
+| --- | --- |
+| Being on the board at all: the snapshot vouches for its own record | 30 |
+| A seven-day move on record | 12 |
+| A listing date on file | 10 |
+| Tracked for more than two years | 12 |
+| A named category | 8 |
+| Live on four or more chains | 8 |
+| More than $1B of TVL | 10 |
+| A weekly move wilder than +300% or below -80% | -12 |
+
+Smaller totals earn fewer points on the same scale, and a missing field earns none at all.
 
 ## Who is ranked
 

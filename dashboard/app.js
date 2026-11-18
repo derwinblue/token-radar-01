@@ -117,6 +117,22 @@
     ].map(stepText);
   }
 
+  // A confidence badge: the score and band in one pill, coloured by the band. The row carries
+  // the verdict from data.js; the page never recomputes it, so the badge and board.json agree.
+  function confidenceBadge(verdict) {
+    if (!verdict) return null;
+    var band = String(verdict.band || 'Low').toLowerCase();
+    var label = verdict.score + ' · ' + verdict.band;
+    return el('span', { class: 'conf-badge conf-' + band, text: label });
+  }
+  // The middle of the board's confidence: a single number for how much the snapshot backs the
+  // ranking as a whole. It is a display figure only; it never re-ranks anything.
+  function medianConfidence() {
+    var scores = DATA.rows.map(function (r) { return r.confidence ? r.confidence.score : null; }).filter(function (s) { return s !== null; }).sort(function (a, b) { return a - b; });
+    if (scores.length === 0) return 'n/a';
+    return String(scores[Math.floor(scores.length / 2)]) + ' / 100';
+  }
+
   function readHash() {
     var hash = window.location.hash.replace(/^#/, '');
     if (!hash) return;
@@ -168,6 +184,7 @@
       else if (key === 'growth') { av = a.row.change_7d === null ? -Infinity : a.row.change_7d; bv = b.row.change_7d === null ? -Infinity : b.row.change_7d; }
       else if (key === 'age') { av = a.row.age_days === null ? Infinity : a.row.age_days; bv = b.row.age_days === null ? Infinity : b.row.age_days; }
       else if (key === 'chains') { av = a.row.chains ? a.row.chains.length : 0; bv = b.row.chains ? b.row.chains.length : 0; }
+      else if (key === 'confidence') { av = a.row.confidence ? a.row.confidence.score : -1; bv = b.row.confidence ? b.row.confidence.score : -1; }
       else { av = a.implied; bv = b.implied; }
       if (av < bv) return -state.dir;
       if (av > bv) return state.dir;
@@ -196,7 +213,8 @@
         el('div', { class: 'fact' }, el('span', { text: 'Watchlist covered' }), el('b', { text: DATA.watchlist_size + ' / ' + DATA.watchlist_size })),
         el('div', { class: 'fact' }, el('span', { text: 'Pre-token rows scored' }), el('b', { text: String(DATA.board_size) })),
         el('div', { class: 'fact' }, el('span', { text: 'Early rows below the floor' }), el('b', { text: String(DATA.early_size) })),
-        el('div', { class: 'fact' }, el('span', { text: 'Live-token protocols set aside' }), el('b', { text: String(DATA.live_size) }))
+        el('div', { class: 'fact' }, el('span', { text: 'Live-token protocols set aside' }), el('b', { text: String(DATA.live_size) })),
+        el('div', { class: 'fact' }, el('span', { text: 'Median confidence in a rank' }), el('b', { text: medianConfidence() }))
       )
     );
   }
@@ -269,6 +287,7 @@
           el('div', { class: 'bar', 'aria-hidden': 'true' }, el('i', { style: 'width:' + Math.max(3, Math.round((s.implied / max) * 100)) + '%' })),
           el('span', { class: 'num', text: fmtUsd(s.implied) })
         )),
+        el('td', null, confidenceBadge(r.confidence)),
         el('td', null, el('span', { class: 'status', text: 'no token' }), r.watchlist ? el('span', { class: 'tag', text: 'watchlist' }) : el('span', { class: 'tag', text: 'early' }))
       );
       tbody.appendChild(tr);
@@ -285,6 +304,7 @@
             sortHeader('age', 'Age'),
             sortHeader('chains', 'Chains'),
             sortHeader('implied', 'Implied value'),
+            sortHeader('confidence', 'Confidence'),
             el('th', { scope: 'col', text: 'Token' })
           )),
           tbody
@@ -387,6 +407,20 @@
         el('div', null, el('span', { text: 'Implied value' }), el('b', { class: 'num', text: fmtUsd(row.implied_value_usd) }))
       ),
       el('p', { class: 'sub', text: 'Model ' + DATA.model_version + ': the same function scores every protocol. The page recomputes this row as ' + fmtUsd(recomputed) + (recomputed === row.implied_value_usd ? ', the same number board.json carries.' : ' under the sandbox constants, which differ from the board: the board uses the model defaults.') + ' This is an estimate, not a price.' })
+    ));
+    var verdict = row.confidence || null;
+    var confBand = verdict ? String(verdict.band || 'Low').toLowerCase() : 'low';
+    var confLabel = verdict ? verdict.score + ' · ' + verdict.band : 'n/a';
+    var confReasons = verdict && verdict.reasons ? verdict.reasons : [];
+    var confParts = verdict && verdict.breakdown ? verdict.breakdown : [];
+    dialog.appendChild(el('section', { class: 'detail-section' },
+      el('h3', { text: 'Confidence in this rank' }),
+      el('div', { class: 'conf-detail' },
+        el('span', { class: 'conf-badge conf-' + confBand, text: confLabel }),
+        el('p', { class: 'sub', text: 'A 0–100 read on how much of the snapshot backs this rank: complete records, a long track record and a steady weekly move score higher. It never moves the rank.' })
+      ),
+      el('ul', { class: 'conf-reasons' }, confReasons.map(function (reason) { return el('li', { text: reason }); })),
+      el('ul', { class: 'conf-parts' }, confParts.map(function (part) { return el('li', null, el('span', { text: part.label }), el('b', { class: 'num', text: (part.points >= 0 ? '+' : '') + part.points })); }))
     ));
     dialog.appendChild(el('section', { class: 'detail-section' },
       el('h3', { text: 'Farm plan' }),

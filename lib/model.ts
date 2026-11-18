@@ -26,6 +26,8 @@
 // No protocol name is ever special-cased: the same function scores every row, and the dashboard
 // recomputes each row from the same figures so the page and board.json agree.
 
+import { confidenceFor } from './confidence.ts';
+
 /** The snapshot's protocol entry: exactly the ten fields the sealed input carries. */
 export interface SnapshotProtocol {
   slug: string;
@@ -77,7 +79,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it and the rules quote it. */
-export const MODEL_VERSION = 'radar-2';
+export const MODEL_VERSION = 'radar-3';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -87,6 +89,14 @@ export interface FarmStep {
   text: string;
   cost: string;
   time: string;
+}
+
+/** A row's confidence verdict, as the dashboard shows it. */
+export interface RowConfidence {
+  score: number;
+  band: 'High' | 'Medium' | 'Low';
+  reasons: string[];
+  breakdown: { label: string; points: number }[];
 }
 
 /** One row of board.json: the ranked board's row. */
@@ -105,6 +115,7 @@ export interface BoardRow {
   token_status: 'pre-token';
   age_days: number | null;
   implied_value_usd: number;
+  confidence: RowConfidence;
   model: {
     base_multiple: number;
     growth_pct: number;
@@ -129,6 +140,7 @@ export interface RadarRow {
   listed_at: string | null;
   age_days: number | null;
   implied_value_usd: number;
+  confidence: RowConfidence;
   growth_multiplier: number;
   maturity_multiplier: number;
   breadth_multiplier: number;
@@ -285,6 +297,7 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): B
     token_status: 'pre-token',
     age_days: s.age,
     implied_value_usd: s.implied,
+    confidence: confidenceFor({ change_7d: s.p.change_7d, listed_at: s.p.listed_at, category: s.p.category, chains: s.p.chains, tvl_usd: s.p.tvl_usd, age_days: s.age }),
     model: {
       base_multiple: model.base_multiple,
       growth_pct: s.growthPct,
@@ -421,6 +434,7 @@ export function radarRow(row: BoardRow, watchlist: Set<string>): RadarRow {
     listed_at: row.listed_at,
     age_days: row.age_days,
     implied_value_usd: row.implied_value_usd,
+    confidence: row.confidence,
     growth_multiplier: row.model.growth_multiplier,
     maturity_multiplier: row.model.maturity_multiplier,
     breadth_multiplier: row.model.breadth_multiplier,
